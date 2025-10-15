@@ -1,5 +1,5 @@
 /**
- * DataPoint.js a webcomponent for encapsulating a dependent/indepenent value
+ * DataPoint.js a web component for encapsulating a dependent/independent value
  * pair to be displayed as part of a bar chart.
  *
  * @author Tom Egan
