@@ -4,9 +4,62 @@
  * @author Tom Egan
  * @license 2-Clause BSD NON-AI License
  */
+class DataPoint extends HTMLElement {
+	static observedAttributes = ["label", "value"];
+
+	constructor() {
+		super();
+	}
+
+	get label() {
+		return this.getAttribute("label") ?? "";
+	}
+
+	set label(label) {
+		this.setAttribute("label", label);
+	}
+
+	get value() {
+		return this.getAttribute("value") ?? "";
+	}
+
+	set value(value) {
+		this.setAttribute("value", value);
+	}
+}
+
+customElements.define("data-point", DataPoint);
+
+class DataSeries extends HTMLElement {
+	static observedAttributes = ["color"];
+
+	constructor() {
+		super();
+	}
+
+	get color() {
+		return this.getAttribute("color") ?? "#69C";
+	}
+
+	set color(color) {
+		this.setAttribute("color", color);
+	}
+
+	get data() {
+		const data = {};
+
+		Array.from(this.getElementsByTagName("data-point")).forEach((point) => {
+			data[point.label] = Number.parseFloat(point.value);
+		});
+
+		return data;
+	}
+}
+
+customElements.define("data-series", DataSeries);
 
 class BarChart extends HTMLElement {
-	static observedAttributes = ["dependent-axis-label"];
+	static observedAttributes = ["dependent-axis-label", "independent-axis-label"];
 
 	constructor() {
 		self = super();
@@ -18,11 +71,31 @@ class BarChart extends HTMLElement {
 	}
 
 	updateChart() {
-		const dataPoints = Array.from(self.getElementsByTagName("data-point"));
-		const maxValue = Math.max(...dataPoints.map((e) => Number.parseFloat(e.value)));
+		const seriesColors = [];
+		const seriesMaxValues = [];
+		const chartData = {};
+		const seriesIds = [];
 
-		const style = document.createElement("style");
-		style.textContent = `
+		const dataSeries = Array.from(self.getElementsByTagName("data-series"));
+		dataSeries.forEach((series, index) => {
+			const seriesId = 'series' + index;
+			seriesIds.push(seriesId);
+
+			seriesColors.push(series.color);
+
+			const data = series.data;
+			seriesMaxValues.push(Math.max(...Object.values(data)));
+
+			for (const key in data) {
+				if (!Object.hasOwn(chartData, key)) {
+					chartData[key] = {};
+				}
+
+				chartData[key][seriesId] = data[key];
+			}
+		});
+
+		let styleRules = `
 		:host {
 			display: block;
 		}
@@ -30,40 +103,58 @@ class BarChart extends HTMLElement {
 		:host > div {
 			display: grid;
 			height:100%;
-			grid-template-columns: 3em 2px repeat(${dataPoints.length}, 1fr);
-			grid-template-rows: 1fr 2px
-		}
-		
-		:host .dependent-axis-label {
-			writing-mode: sideways-lr;
-			grid-row: 1;
-			text-align: center;
+			grid-template-columns: 3em 2px repeat(${Object.keys(chartData).length}, 1fr);
+			grid-template-rows: 1fr 2px 1.5em;
 		}
 
 		:host .dependent-axis {
 			grid-row: 1;
+			grid-column:2;
 			background: #000;
+		}
+
+		:host .dependent-axis-label {
+			writing-mode: sideways-lr;
+			grid-row: 1;
+			grid-column: 1;
+			text-align: center;
 		}
 
 		:host .independent-axis {
 			grid-row: 2;
-			grid-column-start: 2;
-			grid-column-end: -1;
+			grid-column: 2 / -1;
 			background: #000;
+		}
+
+		:host .independent-axis-label {
+			grid-row: 3;
+			grid-column: 2 / -1;
+			text-align: center;
 		}
 
 		:host .bar {
 			grid-row: 1;
 			padding: 0 5px;
 			display: flex;
-			flex-direction: column;
-			justify-content: end;
+			flex-direction: row;
+			align-items: end;
 		}
 
 		:host .bar .fill {
-			background: #69C;
+			width: ${100 / seriesIds.length}%;
 		}
+
 		`;
+		seriesColors.forEach((color, i) => {
+			styleRules += `
+			:host .bar .fill.series${i} {
+				background: ${color}
+			}
+			`;
+		});
+
+		const style = document.createElement("style");
+		style.textContent = styleRules;
 
 		const chart = document.createElement("div");
 
@@ -76,21 +167,32 @@ class BarChart extends HTMLElement {
 		dependentAxis.className = "dependent-axis";
 		chart.appendChild(dependentAxis);
 
+		const maxValue = Math.max(...seriesMaxValues);
+		for (const barLabel in chartData) {
+			let bar = document.createElement("div");
+			bar.className = "bar";
+			seriesIds.forEach((seriesId) => {
+				let barFill = document.createElement("div");
+				barFill.className = "fill " + seriesId;
+				let value = 0;
+				if (Object.hasOwn(chartData[barLabel], seriesId)) {
+					value = chartData[barLabel][seriesId];
+				}
+				barFill.style.height = 100 * value / maxValue + "%";
+				barFill.title = barLabel + ": " + value;
+				bar.appendChild(barFill);
+			});
+			chart.appendChild(bar);
+		}
+
 		const independentAxis = document.createElement("div")
 		independentAxis.className = "independent-axis";
 		chart.appendChild(independentAxis);
 
-		dataPoints.forEach((dataPoint) => {
-			let bar = document.createElement("div");
-			bar.className = "bar";
-
-			let barFill = document.createElement("div");
-			barFill.className = "fill";
-			barFill.style.height = 100 * dataPoint.value / maxValue + "%";
-			barFill.title = dataPoint.value;
-			bar.appendChild(barFill);
-			chart.appendChild(bar);
-		});
+		const independentAxisLabel = document.createElement("p")
+		independentAxisLabel.className = "independent-axis-label";
+		independentAxisLabel.innerText = this.independentAxisLabel;
+		chart.appendChild(independentAxisLabel);
 
 		const shadow = this.attachShadow({mode:"open"});
 		shadow.appendChild(style);
@@ -103,6 +205,14 @@ class BarChart extends HTMLElement {
 
 	set dependentAxisLabel(label) {
 		this.setAttribute("dependent-axis-label", label);
+	}
+
+	get independentAxisLabel() {
+		return this.getAttribute("independent-axis-label") || "";
+	}
+
+	set independentAxisLabel(label) {
+		this.setAttribute("independent-axis-label", label);
 	}
 }
 

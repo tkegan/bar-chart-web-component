@@ -1,6 +1,6 @@
 {
   "name": "bar-chart-web-component",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A web component for displaying a bar chart",
   "main": "BarChart.js",
   "author": "Tom Egan",
