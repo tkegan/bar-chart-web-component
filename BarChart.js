@@ -97,12 +97,7 @@ class BarChart extends HTMLElement {
 
 		let styleRules = `
 		:host {
-			display: block;
-		}
-
-		:host > div {
 			display: grid;
-			height:100%;
 			grid-template-columns: 3em 2px repeat(${Object.keys(chartData).length}, 1fr);
 			grid-template-rows: 1fr 2px 1.5em;
 		}
@@ -156,16 +151,17 @@ class BarChart extends HTMLElement {
 		const style = document.createElement("style");
 		style.textContent = styleRules;
 
-		const chart = document.createElement("div");
+		const shadow = this.attachShadow({mode:"open"});
+		shadow.appendChild(style);
 
 		const dependentAxisLabel = document.createElement("p")
 		dependentAxisLabel.className = "dependent-axis-label";
 		dependentAxisLabel.innerText = this.dependentAxisLabel;
-		chart.appendChild(dependentAxisLabel);
+		shadow.appendChild(dependentAxisLabel);
 
 		const dependentAxis = document.createElement("div")
 		dependentAxis.className = "dependent-axis";
-		chart.appendChild(dependentAxis);
+		shadow.appendChild(dependentAxis);
 
 		const maxValue = Math.max(...seriesMaxValues);
 		for (const barLabel in chartData) {
@@ -182,21 +178,17 @@ class BarChart extends HTMLElement {
 				barFill.title = barLabel + ": " + value;
 				bar.appendChild(barFill);
 			});
-			chart.appendChild(bar);
+			shadow.appendChild(bar);
 		}
 
 		const independentAxis = document.createElement("div")
 		independentAxis.className = "independent-axis";
-		chart.appendChild(independentAxis);
+		shadow.appendChild(independentAxis);
 
 		const independentAxisLabel = document.createElement("p")
 		independentAxisLabel.className = "independent-axis-label";
 		independentAxisLabel.innerText = this.independentAxisLabel;
-		chart.appendChild(independentAxisLabel);
-
-		const shadow = this.attachShadow({mode:"open"});
-		shadow.appendChild(style);
-		shadow.appendChild(chart);
+		shadow.appendChild(independentAxisLabel);
 	}
 
 	get dependentAxisLabel() {
